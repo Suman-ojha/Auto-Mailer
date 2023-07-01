@@ -3,7 +3,7 @@ const { authenticate } = require("@google-cloud/local-auth");
 const { google } = require("googleapis");
 const fs = require("fs").promises;
 const path = require("path");
-const port = 8080;
+const port = 8000;
 
 const app = express();
 
@@ -23,15 +23,17 @@ app.get("/", async (req, res) => {
     scopes: SCOPES,
   });
   console.log("Auth :  ",auth)
+
+  //get the authorize gmail ID 
   const gmail = google.gmail({ version: "v1", auth });
 
-  // Get the list of labels
+  // Get the list of labels present on current gmail
   const response = await gmail.users.labels.list({
     userId: "me",
   });
 
-  // Function to retrieve unreplied messages
-  async function getUnrepliedMessages(auth) {
+  // Function to retrieve unreplied mails or unseen mails
+   const getUnrepliedMessages = async (auth) => {
     const gmail = google.gmail({ version: "v1", auth });
     const response = await gmail.users.messages.list({
       userId: "me",
@@ -42,7 +44,7 @@ app.get("/", async (req, res) => {
   }
 
   // Function to create the "AutoReplied" label if it doesn't exist
-  async function createLabel(auth) {
+   const createLabel = async (auth) => {
     const gmail = google.gmail({ version: "v1", auth });
     try {
       const response = await gmail.users.labels.create({
@@ -55,6 +57,7 @@ app.get("/", async (req, res) => {
       });
       return response.data.id;
     } catch (error) {
+      //If already present...
       if (error.code === 409) {
         const response = await gmail.users.labels.list({
           userId: "me",
@@ -70,7 +73,7 @@ app.get("/", async (req, res) => {
   }
 
   // Main function to handle the auto-reply logic
-  async function main() {
+   const mainFunction = async () => {
     const labelId = await createLabel(auth);
 
     // Set interval to check for unreplied messages at random intervals between 45 to 120 seconds
@@ -105,7 +108,8 @@ app.get("/", async (req, res) => {
                     }\r\n` +
                     `Content-Type: text/plain; charset="UTF-8"\r\n` +
                     `Content-Transfer-Encoding: 7bit\r\n\r\n` +
-                    `Thank you for your email. I hope this message finds you well. I am currently on vacation and will be out of the office. During this time, I will have limited access to email and may not be able to respond immediately.\r\n`
+                    `Thank you for your email. I hope this message finds you well.
+                     I am currently on vacation and will be out of the office.\r\n`
                 ).toString("base64"),
               },
             };
@@ -129,7 +133,7 @@ app.get("/", async (req, res) => {
   }
 
   // Call the main function to start the auto-reply process
-  main();
+  mainFunction();
 
   res.json({ "this is Auth": auth });
 });
